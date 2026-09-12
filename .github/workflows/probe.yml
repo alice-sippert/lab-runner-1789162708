@@ -1,0 +1,14 @@
+name: Lab Probe
+on:
+  push:
+    branches: [lab-probe-rce]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Probe
+        run: bash .github/probe.sh
